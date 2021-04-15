@@ -1,3 +1,7 @@
 public struct ScanBarcodes {
-    var text = "Hello, World!"
+    public init() {
+
+    }
+    
+    public var text = "Hello, World!"
 }
