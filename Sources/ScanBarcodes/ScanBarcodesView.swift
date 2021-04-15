@@ -182,7 +182,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                     do {
                         try device.lockForConfiguration()
                         defer { device.unlockForConfiguration() }
-                        device.videoZoomFactor = 5.0
+                        device.videoZoomFactor = 1.0
                     } catch {
                         print("error setting zoom: \(error.localizedDescription)")
                     }
