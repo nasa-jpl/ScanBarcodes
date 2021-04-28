@@ -11,6 +11,9 @@ import SwiftUI
 
 public struct ScanBarcodesView: UIViewControllerRepresentable {
 
+    @Binding var zoomLevel: Int
+    @Binding var flashlightOn: Bool
+
     public enum BarcodeScanError: Error {
         case camera, barcodeRecognizer
     }
@@ -22,9 +25,13 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
     public init(
         barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType],
         scanInterval: Double = 1.0,
+        zoomLevel : Binding<Int> = .constant(1),
+        flashlightOn: Binding<Bool> = .constant(false),
         completion: @escaping (Result<String, BarcodeScanError>) -> Void) {
         self.barcodeTypes = barcodeTypes
         self.scanInterval = scanInterval
+        self._zoomLevel = zoomLevel
+        self._flashlightOn = flashlightOn
         self.completion = completion
     }
 
@@ -39,7 +46,20 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
     }
 
     public func updateUIViewController(_ uiViewController: ScanBarcodesViewController, context: Context) {
-        // nothing to do
+        // update flashlight and zoom level
+        guard let device = AVCaptureDevice.default(for: .video) else {
+            return
+        }
+
+        do {
+            try device.lockForConfiguration()
+        } catch {
+            return
+        }
+
+        device.videoZoomFactor = CGFloat(zoomLevel)
+        device.torchMode = flashlightOn ? .on : .off
+        device.unlockForConfiguration()
     }
 
 
