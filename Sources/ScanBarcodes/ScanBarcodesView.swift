@@ -8,15 +8,13 @@
 import AVFoundation
 import SwiftUI
 
+public enum BarcodeScanError: Error {
+    case camera, barcodeRecognizer
+}
 
 public struct ScanBarcodesView: UIViewControllerRepresentable {
-
     @Binding var zoomLevel: Int
     @Binding var flashlightOn: Bool
-
-    public enum BarcodeScanError: Error {
-        case camera, barcodeRecognizer
-    }
 
     public let barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType]
     public let scanInterval: Double
