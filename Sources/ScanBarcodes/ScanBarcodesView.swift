@@ -1,10 +1,3 @@
-//
-//  ScanBarcodesView.swift
-//  
-//
-//  Created by Mark Powell on 4/15/21.
-//
-
 import AVFoundation
 import SwiftUI
 
@@ -17,21 +10,18 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
     @Binding var flashlightOn: Bool
 
     public let barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType]
-    public let scanInterval: Double
     public var completion: (Result<String, BarcodeScanError>) -> Void
 
     public init(
         barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType],
-        scanInterval: Double = 1.0,
         zoomLevel : Binding<Int> = .constant(1),
         flashlightOn: Binding<Bool> = .constant(false),
         completion: @escaping (Result<String, BarcodeScanError>) -> Void) {
-        self.barcodeTypes = barcodeTypes
-        self.scanInterval = scanInterval
-        self._zoomLevel = zoomLevel
-        self._flashlightOn = flashlightOn
-        self.completion = completion
-    }
+            self.barcodeTypes = barcodeTypes
+            self._zoomLevel = zoomLevel
+            self._flashlightOn = flashlightOn
+            self.completion = completion
+        }
 
     public func makeCoordinator() -> ScanBarcodesCoordinator {
         return ScanBarcodesCoordinator(parent: self)
@@ -39,25 +29,18 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
     public func makeUIViewController(context: Context) -> ScanBarcodesViewController {
         let viewC = ScanBarcodesViewController()
+        viewC.flashlightOn = flashlightOn
+        viewC.zoomLevel = zoomLevel
         viewC.delegate = context.coordinator
         return viewC
     }
 
     public func updateUIViewController(_ uiViewController: ScanBarcodesViewController, context: Context) {
         // update flashlight and zoom level
-        guard let device = AVCaptureDevice.default(for: .video) else {
+        guard let _ = AVCaptureDevice.default(for: .video) else {
             return
         }
-
-        do {
-            try device.lockForConfiguration()
-        } catch {
-            return
-        }
-
-        device.videoZoomFactor = CGFloat(zoomLevel)
-        device.torchMode = flashlightOn ? .on : .off
-        device.unlockForConfiguration()
+        uiViewController.configure(flashlightOn, zoomLevel)
     }
 
 
@@ -72,12 +55,12 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
             _ output: AVCaptureMetadataOutput,
             didOutput metadataObjects: [AVMetadataObject],
             from connection: AVCaptureConnection) {
-            if let metadataObject = metadataObjects.first {
-                guard let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject else { return }
-                guard let barcodeValue = readableObject.stringValue else { return }
-                recognized(barcodeValue)
+                if let metadataObject = metadataObjects.first {
+                    guard let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject else { return }
+                    guard let barcodeValue = readableObject.stringValue else { return }
+                    recognized(barcodeValue)
+                }
             }
-        }
 
         func recognized(_ barcodeValue: String) {
             AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
@@ -97,14 +80,17 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
         let serialQueue = DispatchQueue(label: "AVCaptureSession")
         let barcodeQueue = DispatchQueue(label: "BarcodeDetection")
         var previewLayer: AVCaptureVideoPreviewLayer!
+        var flashlightOn = false
+        var zoomLevel = 1
 
         public override func viewDidLoad() {
             super.viewDidLoad()
-            NotificationCenter.default.addObserver(self,
-                                                   selector: #selector(updateOrientation),
-                                                   name: Notification.Name("UIDeviceOrientationDidChangeNotification"),
-                                                   object: nil)
-
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(updateOrientation),
+                name: Notification.Name("UIDeviceOrientationDidChangeNotification"),
+                object: nil
+            )
         }
 
         override public func viewWillAppear(_ animated: Bool) {
@@ -165,6 +151,24 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
             device.unlockForConfiguration()
         }
 
+        func configure(_ flashlightOn: Bool, _ zoomLevel: Int) {
+            self.flashlightOn = flashlightOn
+            self.zoomLevel = zoomLevel
+            serialQueue.async {
+                guard let device = AVCaptureDevice.default(for: .video)
+                else { return }
+
+                do {
+                    try device.lockForConfiguration()
+                    device.torchMode = flashlightOn ? .on : .off
+                    device.videoZoomFactor = CGFloat(zoomLevel)
+                    device.unlockForConfiguration()
+                } catch let error {
+                    print(error.localizedDescription)
+                }
+            }
+        }
+
         func startCameraSession() {
             serialQueue.async {
                 let captureSession = self.captureSession
@@ -179,6 +183,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                             }
                             self.previewLayer.session = captureSession
                         }
+                        self.configure(self.flashlightOn, self.zoomLevel)
                     }
 
                     guard let videoDeviceInput = try? AVCaptureDeviceInput(device: device), captureSession.canAddInput(videoDeviceInput) else {
@@ -197,13 +202,6 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                     captureSession.addOutput(captureMetadataOutput)
                     captureMetadataOutput.setMetadataObjectsDelegate(self.delegate, queue: self.barcodeQueue)
                     captureMetadataOutput.metadataObjectTypes = self.delegate?.parent.barcodeTypes
-                    do {
-                        try device.lockForConfiguration()
-                        defer { device.unlockForConfiguration() }
-                        device.videoZoomFactor = 1.0
-                    } catch {
-                        print("error setting zoom: \(error.localizedDescription)")
-                    }
                 }
             }
         }
