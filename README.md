@@ -11,7 +11,7 @@ ScanBarcodes is a SwiftUI view that scans barcodes using an iPhone or iPad camer
 
 ## Getting started
 
-Try the demo application (link TBD)
+Try the [demo application](https://github.com/nasa-jpl/ScanBarcodesDemo.git)
 
 **Two important notes on usage:**
 
