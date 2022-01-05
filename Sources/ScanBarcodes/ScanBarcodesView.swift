@@ -121,7 +121,6 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
         override public func viewWillDisappear(_ animated: Bool) {
             stopSessionAndRemoveCameraInputOutput()
-            configure(flashlightOn: false, zoomLevel: 1)
             super.viewWillDisappear(animated)
         }
 
