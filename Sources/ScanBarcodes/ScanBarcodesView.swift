@@ -28,9 +28,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
     }
 
     public func makeUIViewController(context: Context) -> ScanBarcodesViewController {
-        let viewC = ScanBarcodesViewController()
-        viewC.flashlightOn = flashlightOn
-        viewC.zoomLevel = zoomLevel
+        let viewC = ScanBarcodesViewController(flashlightOn, zoomLevel)
         viewC.delegate = context.coordinator
         return viewC
     }
@@ -40,7 +38,12 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
         guard let _ = AVCaptureDevice.default(for: .video) else {
             return
         }
-        uiViewController.configure(flashlightOn, zoomLevel)
+        if uiViewController.flashlightOn != flashlightOn ||
+            uiViewController.zoomLevel != zoomLevel {
+            uiViewController.configure(
+                flashlightOn: flashlightOn,
+                zoomLevel: zoomLevel)
+        }
     }
 
 
@@ -65,7 +68,6 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
         func recognized(_ barcodeValue: String) {
             AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
             parent.completion(.success(barcodeValue))
-
         }
 
         func failed(error: BarcodeScanError) {
@@ -80,8 +82,20 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
         let serialQueue = DispatchQueue(label: "AVCaptureSession")
         let barcodeQueue = DispatchQueue(label: "BarcodeDetection")
         var previewLayer: AVCaptureVideoPreviewLayer!
-        var flashlightOn = false
-        var zoomLevel = 1
+        var flashlightOn: Bool
+        var zoomLevel: Int
+
+        required init?(coder: NSCoder) {
+            self.flashlightOn = false
+            self.zoomLevel = 1
+            super.init(coder: coder)
+        }
+
+        public init(_ flashlightOn: Bool = false, _ zoomLevel:Int = 1) {
+            self.flashlightOn = flashlightOn
+            self.zoomLevel = zoomLevel
+            super.init(nibName: nil, bundle: nil)
+        }
 
         public override func viewDidLoad() {
             super.viewDidLoad()
@@ -107,6 +121,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
         override public func viewWillDisappear(_ animated: Bool) {
             stopSessionAndRemoveCameraInputOutput()
+            configure(flashlightOn: false, zoomLevel: 1)
             super.viewWillDisappear(animated)
         }
 
@@ -148,24 +163,24 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
             device.focusMode = .continuousAutoFocus
             device.exposurePointOfInterest = focusPoint
             device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
+            device.torchMode = flashlightOn ? .on : .off
+            device.videoZoomFactor = CGFloat(zoomLevel)
             device.unlockForConfiguration()
         }
 
-        func configure(_ flashlightOn: Bool, _ zoomLevel: Int) {
+        func configure(flashlightOn: Bool, zoomLevel: Int) {
             self.flashlightOn = flashlightOn
             self.zoomLevel = zoomLevel
-            serialQueue.async {
-                guard let device = AVCaptureDevice.default(for: .video)
-                else { return }
+            guard let device = AVCaptureDevice.default(for: .video)
+            else { return }
 
-                do {
-                    try device.lockForConfiguration()
-                    device.torchMode = flashlightOn ? .on : .off
-                    device.videoZoomFactor = CGFloat(zoomLevel)
-                    device.unlockForConfiguration()
-                } catch let error {
-                    print(error.localizedDescription)
-                }
+            do {
+                try device.lockForConfiguration()
+                device.torchMode = flashlightOn ? .on : .off
+                device.videoZoomFactor = CGFloat(zoomLevel)
+                device.unlockForConfiguration()
+            } catch let error {
+                print(error.localizedDescription)
             }
         }
 
@@ -183,7 +198,10 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                             }
                             self.previewLayer.session = captureSession
                         }
-                        self.configure(self.flashlightOn, self.zoomLevel)
+                        self.configure(
+                            flashlightOn: self.flashlightOn,
+                            zoomLevel: self.zoomLevel
+                        )
                     }
 
                     guard let videoDeviceInput = try? AVCaptureDeviceInput(device: device), captureSession.canAddInput(videoDeviceInput) else {
