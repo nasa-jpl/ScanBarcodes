@@ -121,6 +121,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
         override public func viewWillDisappear(_ animated: Bool) {
             stopSessionAndRemoveCameraInputOutput()
+            NotificationCenter.default.removeObserver(self)
             super.viewWillDisappear(animated)
         }
 
@@ -131,6 +132,21 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
         override public func viewWillLayoutSubviews() {
             previewLayer?.frame = view.layer.bounds
+        }
+
+        public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+            coordinator.animate(alongsideTransition: { (UIViewControllerTransitionCoordinatorContext) -> Void in
+                self.previewLayer.connection?.videoOrientation = self.videoOrientationFromCurrentDeviceOrientation()
+
+            }, completion: { (UIViewControllerTransitionCoordinatorContext) -> Void in
+                // Finish Rotation
+            })
+
+            super.viewWillTransition(to: size, with: coordinator)
+        }
+
+        public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+            return .all
         }
 
         @objc func updateOrientation() {
@@ -233,6 +249,24 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                 let cameraOutputs = captureSession.outputs.compactMap { $0 as AVCaptureOutput }
                 cameraOutputs.forEach { captureSession.removeOutput($0) }
                 captureSession.commitConfiguration()
+            }
+        }
+
+        func videoOrientationFromCurrentDeviceOrientation() -> AVCaptureVideoOrientation {
+            guard let deviceOrientation = UIApplication.shared.windows.first?.windowScene?.interfaceOrientation else {
+                return .portrait
+            }
+            switch deviceOrientation {
+            case .portrait:
+                return AVCaptureVideoOrientation.portrait
+            case .landscapeLeft:
+                return AVCaptureVideoOrientation.landscapeLeft
+            case .landscapeRight:
+                return AVCaptureVideoOrientation.landscapeRight
+            case .portraitUpsideDown:
+                return AVCaptureVideoOrientation.portraitUpsideDown
+            default:
+                return AVCaptureVideoOrientation.portrait
             }
         }
     }
