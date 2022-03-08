@@ -11,16 +11,19 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
     public let barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType]
     public var completion: (Result<String, BarcodeScanError>) -> Void
+    public var scanRateDelay: Double
 
     public init(
         barcodeTypes: [AVMetadataMachineReadableCodeObject.ObjectType],
         zoomLevel : Binding<Int> = .constant(1),
         flashlightOn: Binding<Bool> = .constant(false),
+        scanRateDelay: Double = 5,
         completion: @escaping (Result<String, BarcodeScanError>) -> Void) {
             self.barcodeTypes = barcodeTypes
             self._zoomLevel = zoomLevel
             self._flashlightOn = flashlightOn
             self.completion = completion
+            self.scanRateDelay = scanRateDelay
         }
 
     public func makeCoordinator() -> ScanBarcodesCoordinator {
@@ -49,6 +52,8 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
     public class ScanBarcodesCoordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         var parent: ScanBarcodesView
+        private var lastBarcodeScanned: String = ""
+        private var lastScanTime: Date = Date()
 
         init(parent: ScanBarcodesView) {
             self.parent = parent
@@ -66,8 +71,15 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
             }
 
         func recognized(_ barcodeValue: String) {
-            AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
-            parent.completion(.success(barcodeValue))
+            // only call completion handler if the barcode has changed or the scanRateDelay seconds have passed
+            if (barcodeValue != lastBarcodeScanned || lastScanTime.timeIntervalSinceNow < -parent.scanRateDelay) {
+                // reset tracking variables to current values (code & time)
+                lastBarcodeScanned = barcodeValue
+                lastScanTime = Date()
+                AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
+                parent.completion(.success(barcodeValue))
+            }
+            
         }
 
         func failed(error: BarcodeScanError) {
