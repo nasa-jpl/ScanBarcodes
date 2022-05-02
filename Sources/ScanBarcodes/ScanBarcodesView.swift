@@ -235,6 +235,12 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
                         return
                     }
                     captureSession.addInput(videoDeviceInput)
+
+                    DispatchQueue.main.async {  [weak self] in
+                        self?.previewLayer.connection?.videoOrientation =
+                        self?.videoOrientationFromCurrentDeviceOrientation() ?? .portrait
+                    }
+
                     self.photoOutput.isHighResolutionCaptureEnabled = true
                     self.photoOutput.maxPhotoQualityPrioritization = .quality
                     guard captureSession.canAddOutput(self.photoOutput) else {
