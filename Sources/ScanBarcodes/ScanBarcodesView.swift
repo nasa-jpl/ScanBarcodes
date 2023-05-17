@@ -190,7 +190,7 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
             device.focusMode = .continuousAutoFocus
             device.exposurePointOfInterest = focusPoint
             device.exposureMode = AVCaptureDevice.ExposureMode.continuousAutoExposure
-            device.torchMode = flashlightOn ? .on : .off
+            safelySetTorch(device, mode: flashlightOn ? AVCaptureDevice.TorchMode.on : AVCaptureDevice.TorchMode.off)
             device.videoZoomFactor = CGFloat(zoomLevel)
             device.unlockForConfiguration()
         }
@@ -203,11 +203,17 @@ public struct ScanBarcodesView: UIViewControllerRepresentable {
 
             do {
                 try device.lockForConfiguration()
-                device.torchMode = flashlightOn ? .on : .off
+                safelySetTorch(device, mode: flashlightOn ? .on : .off)
                 device.videoZoomFactor = CGFloat(zoomLevel)
                 device.unlockForConfiguration()
             } catch let error {
                 print(error.localizedDescription)
+            }
+        }
+
+        func safelySetTorch(_ device: AVCaptureDevice, mode: AVCaptureDevice.TorchMode) {
+            if device.isTorchModeSupported(mode) {
+                device.torchMode = mode
             }
         }
 
